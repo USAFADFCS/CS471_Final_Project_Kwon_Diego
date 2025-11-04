@@ -4,6 +4,34 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers import StoppingCriteria, StoppingCriteriaList, TextIteratorStreamer
 from threading import Thread
 
+import sys
+sys.path.append("CS471_Final_Project-Kwon-Diego--main/schedule")
+from schedule.Sleep_Tracker import SleepManager
+
+def organize_activities_by_day(activity_text):
+    import json
+    try:
+        activities = json.loads(activity_text)
+    except json.JSONDecodeError:
+        return {"error": "Invalid input. Please provide a JSON list of activities."}
+
+    schedule = {}
+    for act in activities:
+        day = act.get("day", "unspecified")
+        task = act.get("task", "No task provided")
+        schedule.setdefault(day, []).append(task)
+
+    
+    sleep_manager = SleepManager()
+    
+    sleep_manager.sleepmanager.addSleep(8)
+
+    if not sleep_manager.correctSleepHours():
+        for day in schedule:
+            schedule[day].append("Sleep (8 hours)")
+
+    return schedule
+
 # Loading the tokenizer and model from Hugging Face's model hub.
 tokenizer = AutoTokenizer.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0")
 model = AutoModelForCausalLM.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0")
