@@ -5,32 +5,50 @@ from transformers import StoppingCriteria, StoppingCriteriaList, TextIteratorStr
 from threading import Thread
 
 import sys
-sys.path.append("CS471_Final_Project-Kwon-Diego--main/schedule")
+import os
+
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(parent_dir)
 from schedule.Sleep_Tracker import SleepManager
 
-def organize_activities_by_day(activity_text):
-    import json
-    try:
-        activities = json.loads(activity_text)
-    except json.JSONDecodeError:
-        return {"error": "Invalid input. Please provide a JSON list of activities."}
+from datetime import datetime, timedelta
 
+from datetime import datetime, timedelta
+
+def parse_time_range(time_range):
+    """Convert 'HH:MM-HH:MM' to start and end datetime objects."""
+    start_str, end_str = time_range.split('-')
+    start = datetime.strptime(start_str, "%H:%M")
+    end = datetime.strptime(end_str, "%H:%M")
+    if end <= start:  # handle sleep past midnight
+        end += timedelta(days=1)
+    return start, end
+
+def organize_activities_by_day(schedule_list):
+    """
+    Takes a list of tuples (Day, Event, 'Start-End') and ensures 8 hours of sleep per day.
+    Example: [("Monday", "Work", "09:00-17:00"), ("Monday", "Sleep", "23:00-07:00")]
+    """
     schedule = {}
-    for act in activities:
-        day = act.get("day", "unspecified")
-        task = act.get("task", "No task provided")
-        schedule.setdefault(day, []).append(task)
+    sleep_manager = SleepManager()  # from your imported module
 
-    
-    sleep_manager = SleepManager()
-    
-    sleep_manager.sleepmanager.addSleep(8)
+    for day, event, time_range in schedule_list:
+        start, end = parse_time_range(time_range)
+        duration = (end - start).total_seconds() / 3600  # convert seconds to hours
+        schedule.setdefault(day, []).append(f"{event}: {time_range}")
 
-    if not sleep_manager.correctSleepHours():
-        for day in schedule:
-            schedule[day].append("Sleep (8 hours)")
+        if event.lower() == "sleep":
+            sleep_manager.sleepmanager.addSleep(duration)
 
-    return schedule
+    results = {}
+    for day, events in schedule.items():
+        total_sleep = sleep_manager.sleepmanager.getSleep()
+        if total_sleep >= 8:
+            results[day] = events + [f"Adequate sleep: {total_sleep:.2f} hours"]
+        else:
+            results[day] = events + [f"⚠ Inadequate sleep: {total_sleep:.2f} hours (add more sleep)"]
+
+    return results
 
 # Loading the tokenizer and model from Hugging Face's model hub.
 tokenizer = AutoTokenizer.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0")
